@@ -1,0 +1,11 @@
+---
+- name: Join worker nodes (dp1, dp2)
+  hosts: workers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Join the cluster as a worker
+      ansible.builtin.shell: "{{ lookup('file', 'join-worker.sh') }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf

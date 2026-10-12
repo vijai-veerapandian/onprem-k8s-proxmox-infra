@@ -1,0 +1,4 @@
+---
+# k8s 1.29+ : first control-plane bootstraps kube-vip against super-admin.conf,
+# then we switch it to admin.conf after kubeadm init (handled in Phase5).
+kube_vip_kubeconfig: /etc/kubernetes/super-admin.conf

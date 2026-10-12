@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kube-vip
+  namespace: kube-system
+spec:
+  hostNetwork: true
+  containers:
+    - name: kube-vip
+      image: ghcr.io/kube-vip/kube-vip:{{ kube_vip_version }}
+      imagePullPolicy: IfNotPresent
+      args:
+        - manager
+      env:
+        - name: vip_arp
+          value: "true"
+        - name: port
+          value: "6443"
+        - name: vip_interface
+          value: "{{ ansible_default_ipv4.interface }}"
+        - name: vip_subnet
+          value: "32"
+        - name: cp_enable
+          value: "true"
+        - name: cp_namespace
+          value: "kube-system"
+        - name: vip_leaderelection"
+          value: "true"
+        - name: vip_leasename
+          value: "plndr-cp-lock"
+        - name: vip_leaseduration
+          value: "15"
+        - name: vip_renewdeadline
+          value: "10"
+        - name: vip_retryperiod
+          value: "2"
+        - name: address
+          value: "{{ kube_vip }}"
+      securityContext:
+        capabilities:
+          add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_TIME
+      volumeMounts:
+        - mountPath: /etc/kubernetes/admin.conf
+          name: kubeconfig
+        - mountPath: /etc/hosts
+          name: etchosts
+  volumes:
+    - name: kubeconfig
+      hostPath:
+        path: {{ kube_vip_kubeconfig }}
+    - name: etchosts
+      hostPath:
+        path: /etc/kube-vip.hosts
+        type: File 

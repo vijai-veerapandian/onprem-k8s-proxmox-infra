@@ -1,0 +1,91 @@
+---
+- name: Bootstrap the first control plane (cp1)
+  hosts: cp1
+  become: true
+  gather_facts: true
+
+  roles:
+    - kube-vip 
+
+  tasks:
+    - name: kubeadm init on cp1
+      ansible.builtin.command: >
+        kubeadm init
+        --control-plane-endpoint {{ control_plane_endpoint }}
+        --upload-certs
+        --pod-network-cidr {{ pod_cidr }}
+        --service-cidr {{ service_cidr }}
+      args:
+        creates: /etc/kubernetes/admin.conf
+      register: kubeadm_init
+
+    - name: Show kubeadm init output (first run only)
+      ansible.builtin.debug:
+        var: kubeadm_init.stdout_lines
+      when: kubeadm_init is changed
+
+    - name: Point kube-vip at admin.conf now that bootstrap is finished
+      ansible.builtin.replace:
+        path: /etc/kubernetes/manifests/kube-vip.yaml
+        regexp: 'super-admin\.conf'
+        replace: 'admin.conf'
+
+    - name: Wait for the VIP to answer on 6443 after kube-vip restarts
+      ansible.builtin.wait_for:
+        host: "{{ kube_vip }}"
+        port: 6443
+        delay: 5
+        timeout: 120
+      
+    # --- give vijai a working kubectl on cp1 ---
+    - name: Create ~/.kube for vijai
+      ansible.builtin.file:
+        path: /home/vijai/.kube
+        state: directory
+        owner: vijai
+        group: vijai
+        mode: '0750'
+
+    - name: Install admin.conf as vijai's kubeconfig
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/vijai/.kube/config
+        remote_src: true
+        owner: vijai
+        group: vijai
+        mode: '0600'
+
+    # --- capture join commands for cp2/cp3 and the workers ---
+    - name: Generate the worker join command
+      ansible.builtin.command: kubeadm token create --print-join-command
+      register: worker_join
+      changed_when: false
+
+    - name: Re-upload certs and get a fresh certificate key 
+      ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
+      register: upload_certs
+      changed_when: false
+
+    - name: Extract the certificate key (last line of the upload-certs output)
+      ansible.builtin.set_fact:
+        certificate_key: "{{ upload_certs.stdout_lines[-1] }}"
+
+    - name: Build the control-plane join command 
+      ansible.builtin.set_fact:
+        control_plane_join: "{{ worker_join.stdout }} --control-plane --certificate-key {{ certificate_key }}"
+
+    - name: Save worker join command on the dev laptop
+      ansible.builtin.copy:
+        content: "{{ worker_join.stdout }}\n"
+        dest: "./join-worker.sh"
+        mode: '0700'
+      delegate_to : localhost
+      become: false
+
+    - name: Save control-plane join command on the dev laptop
+      ansible.builtin.copy:
+        content: "{{ control_plane_join }}\n"
+        dest: "./join-controlplane.sh"
+        mode: '0700'
+      delegate_to: localhost
+      become: false

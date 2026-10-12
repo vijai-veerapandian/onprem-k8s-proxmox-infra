@@ -1,0 +1,34 @@
+---
+- name: Join additional control planes (cp2, cp3)
+  hosts: cp2, cp3
+  become: true
+  gather_facts: true
+  serial: 1   # Join one at a time - safer for etcd quorum
+  vars:
+    kube_vip_kubeconfig: /etc/kubernetes/admin.conf
+
+  pre_tasks:
+    - name: Join the control plane
+      ansible.builtin.shell: "{{ lookup('file', 'join-controlplane.sh') }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+
+    - name: Create ~/.kube for vijai
+      ansible.builtin.file:
+        path: /home/vijai/.kube
+        state: directory
+        owner: vijai
+        group: vijai
+        mode: '0750'
+
+    - name: Install admin.conf as vijai's kubeconfig
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/vijai/.kube/config
+        remote_src: true
+        owner: vijai
+        group: vijai
+        mode: '0600'
+
+  roles:
+    - kube-vip

@@ -1,0 +1,24 @@
+# Terraform - state and vars hold secrets
+**/.terraform/*
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+#Secrets / local vars
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Ansible - join scripts carry tokens + certificate keys
+ansible/join-*.sh
+
+# Kubeconfigs and local backups
+kubeconfig*
+*.kubeconfig
+config.backup-*

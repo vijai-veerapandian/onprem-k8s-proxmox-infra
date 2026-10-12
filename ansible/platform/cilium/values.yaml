@@ -1,0 +1,14 @@
+# Cilium CNI - homelab, coexisting with kube-proxy
+kubeProxyReplacement: false 
+ipam:
+  mode: kubernetes
+operator:
+  replicas: 2
+
+# --- Phase 8b: L2 load-balancing ---
+l2announcements:
+  enabled: true
+k8sClientRateLimit:  # L2 announcement use leader-election leases -> more API Calls
+  qps: 10
+  burst: 20
+
